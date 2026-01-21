@@ -54,6 +54,9 @@ on:
   schedule:
     - cron: '0 3 * * 0' # weekly
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   cleanup:
@@ -65,13 +68,15 @@ jobs:
     steps:
       - name: Cleanup stale branches
         env:
-          GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
+          GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }} #updated token
           DRY_RUN: "true"   # 🔁 set to "false" to actually delete
         run: |
           set -e
 
           REPOS=(
-            "https://github.com/demoshu23/MavenHelloWorld"             
+            "https://github.com/demoshu23/MavenHelloWorld"  
+             env:
+                GH_TOKEN: ${{ github.token }}          
             "https://github.com/demoshu23/Lab"
           )
 
