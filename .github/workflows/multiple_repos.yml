@@ -48,29 +48,83 @@
 #               done
 #           done
 # .github/workflows/cleanup-stale-branches.yml
-name: Cleanup stale branches (5 repos)
+# name: Cleanup stale branches (5 repos)
+
+# on:
+#   schedule:
+#     - cron: '0 3 * * 0' # weekly
+#   workflow_dispatch:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   cleanup:
+#     runs-on: ubuntu-latest
+
+#     permissions:
+#       contents: write
+
+#     steps:
+#       - name: Cleanup stale branches
+#         env:
+#           CGH_TOKEN: ${{ secrets.CLEANUP_TOKEN }} #updated token
+#           # GH_TOKEN: ${{ github.token }}
+#           DRY_RUN: "true"   # 🔁 set to "false" to actually delete
+#         run: |
+#           set -e
+
+#           REPOS=(
+#             "https://github.com/demoshu23/MavenHelloWorld"       
+#             "https://github.com/demoshu23/Lab"
+#           )
+
+#           DAYS=90
+#           CUTOFF=$(date -d "-$DAYS days" +%s)
+
+#           for REPO in "${REPOS[@]}"; do
+#             echo "🔍 Processing $REPO"
+
+#             gh api repos/$REPO/branches --paginate \
+#               | jq -r '.[].name' \
+#               | grep -vE '^(main|master|develop|release/)' \
+#               | while read BRANCH; do
+
+#                   LAST_COMMIT_DATE=$(gh api repos/$REPO/commits/$BRANCH \
+#                     | jq -r '.commit.committer.date')
+
+#                   LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
+
+#                   if [ "$LAST_TS" -lt "$CUTOFF" ]; then
+#                     if [ "$DRY_RUN" = "true" ]; then
+#                       echo "🧪 [DRY-RUN] Would delete $REPO:$BRANCH"
+#                     else
+#                       echo "🧹 Deleting $REPO:$BRANCH"
+#                       gh api -X DELETE repos/$REPO/git/refs/heads/$BRANCH || true
+#                     fi
+#                   fi
+#               done
+#           done
+name: 'delete-stale-branches-multi-repo'
 
 on:
-  schedule:
-    - cron: '0 3 * * 0' # weekly
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '0 0 * * 1' # weekly
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
     steps:
-      - name: Cleanup stale branches
+      - name: Install GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y gh jq
+
+      - name: Cleanup stale branches across repos
         env:
-          CGH_TOKEN: ${{ secrets.CLEANUP_TOKEN }} #updated token
-          # GH_TOKEN: ${{ github.token }}
-          DRY_RUN: "true"   # 🔁 set to "false" to actually delete
+          GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
+          DRY_RUN: true  # set to false to actually delete branches
         run: |
           set -e
 
@@ -79,13 +133,14 @@ jobs:
             "https://github.com/demoshu23/Lab"
           )
 
-          DAYS=90
+          DAYS=120
           CUTOFF=$(date -d "-$DAYS days" +%s)
 
           for REPO in "${REPOS[@]}"; do
             echo "🔍 Processing $REPO"
 
             gh api repos/$REPO/branches --paginate \
+              -H "Accept: application/vnd.github.v3+json" \
               | jq -r '.[].name' \
               | grep -vE '^(main|master|develop|release/)' \
               | while read BRANCH; do
@@ -97,7 +152,7 @@ jobs:
 
                   if [ "$LAST_TS" -lt "$CUTOFF" ]; then
                     if [ "$DRY_RUN" = "true" ]; then
-                      echo "🧪 [DRY-RUN] Would delete $REPO:$BRANCH"
+                      echo "🟡 [Dry Run] Would delete $REPO:$BRANCH"
                     else
                       echo "🧹 Deleting $REPO:$BRANCH"
                       gh api -X DELETE repos/$REPO/git/refs/heads/$BRANCH || true
