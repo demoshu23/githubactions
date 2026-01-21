@@ -1,0 +1,70 @@
+name: Delete Stale Branches Across Multiple Repos
+
+on:
+  push:
+    branches:
+        - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run mode (true/false)"
+        required: false
+        default: "true"
+      days:
+        description: "Delete branches older than this many days"
+        required: false
+        default: "60"
+  schedule:
+    - cron: '0 0 * * *' # daily
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install GitHub CLI & jq
+        run: |
+          sudo apt update
+          sudo apt install -y gh jq
+
+      - name: Delete stale branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          DAYS: ${{ github.event.inputs.days }}
+        run: |
+          set -e
+          CUTOFF=$(date -d "-$DAYS days" +%s)
+          echo "Dry-run: $DRY_RUN"
+          echo "Deleting branches older than $DAYS days"
+
+          # List of repositories (owner/repo)
+          REPOS=(
+            "$GITHUB_REPOSITORY"            # current repo
+            "demoshu23/MavenHelloWorld"
+            "demoshu23/Lab"
+          )
+
+          for REPO in "${REPOS[@]}"; do
+            echo "🔍 Processing $REPO"
+
+            # Get branch list excluding main branches
+            gh api repos/$REPO/branches --paginate -H "Accept: application/vnd.github.v3+json" \
+              | jq -r '.[].name' \
+              | grep -vE '^(main|master|develop|release/)' \
+              | while read BRANCH; do
+
+                  LAST_COMMIT_DATE=$(gh api repos/$REPO/commits/$BRANCH \
+                    | jq -r '.commit.committer.date')
+
+                  LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
+
+                  if [ "$LAST_TS" -lt "$CUTOFF" ]; then
+                    if [ "$DRY_RUN" = "true" ]; then
+                      echo "🟡 [Dry Run] Would delete $REPO:$BRANCH"
+                    else
+                      echo "🧹 Deleting $REPO:$BRANCH"
+                      gh api -X DELETE repos/$REPO/git/refs/heads/$BRANCH || true
+                    fi
+                  fi
+              done
+          done
