@@ -28,7 +28,8 @@ jobs:
 
       - name: Delete stale branches
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        #   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
           DAYS: ${{ github.event.inputs.days }}
         run: |
