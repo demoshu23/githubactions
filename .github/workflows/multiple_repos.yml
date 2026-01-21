@@ -129,8 +129,8 @@ jobs:
           set -e
 
           REPOS=(
-            "https://github.com/demoshu23/MavenHelloWorld"       
-            "https://github.com/demoshu23/Lab"
+            "demoshu23/MavenHelloWorld"       
+            "demoshu23/Lab"
           )
 
           DAYS=120
