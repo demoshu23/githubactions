@@ -1,5 +1,5 @@
 name: deployment excerise 2
-on: [ push, workflow_dispatch ]
+on: [ workflow_dispatch ]
 jobs:
   lint:
     runs-on: ubuntu-latest
