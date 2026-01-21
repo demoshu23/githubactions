@@ -68,16 +68,14 @@ jobs:
     steps:
       - name: Cleanup stale branches
         env:
-          # CLEANUP_TOKEN: ${{ secrets.CLEANUP_TOKEN }} #updated token
-          GH_TOKEN: ${{ github.token }}
+          CGH_TOKEN: ${{ secrets.CLEANUP_TOKEN }} #updated token
+          # GH_TOKEN: ${{ github.token }}
           DRY_RUN: "true"   # 🔁 set to "false" to actually delete
         run: |
           set -e
 
           REPOS=(
-            "https://github.com/demoshu23/MavenHelloWorld"  
-             env:
-                GH_TOKEN: ${{ github.token }}          
+            "https://github.com/demoshu23/MavenHelloWorld"       
             "https://github.com/demoshu23/Lab"
           )
 
