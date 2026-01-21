@@ -1,0 +1,57 @@
+name: Cleanup Stale Branches
+
+on:
+  push:
+    branches:
+        - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run mode (true/false)"
+        required: false
+        default: "true"
+      last_commit_age_days:
+        description: "Delete branches older than this many days"
+        required: false
+        default: "60"
+  schedule:
+    - cron: '0 0 * * *' # daily at midnight
+
+jobs:
+  cleanup-stale-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up repositories list
+        id: repos
+        run: |
+          # List of repositories (owner/repo)
+          echo "REPOS<<EOF" >> $GITHUB_ENV
+          echo "demoshu23/MavenHelloWorld" >> $GITHUB_ENV
+          echo "demoshu23/Lab" >> $GITHUB_ENV
+          echo "${GITHUB_REPOSITORY}" >> $GITHUB_ENV # include current repo
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Cleanup stale branches across multiple repos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          LAST_COMMIT_AGE_DAYS: ${{ github.event.inputs.last_commit_age_days }}
+        run: |
+          set -e
+          echo "Dry-run mode: $DRY_RUN"
+          echo "Deleting branches older than $LAST_COMMIT_AGE_DAYS days"
+
+          # Loop over each repository
+          while read -r REPO; do
+            if [ -z "$REPO" ]; then
+              continue
+            fi
+            echo "🔍 Processing $REPO"
+
+            # Call the cleanup action via 'uses' inside a sub-job
+            gh workflow run cbrgm_cleanup-stale-branches.yml \
+              --repo "$REPO" \
+              --ref main \
+              --inputs "dry_run=$DRY_RUN,last_commit_age_days=$LAST_COMMIT_AGE_DAYS" || true
+
+          done <<< "$REPOS"
