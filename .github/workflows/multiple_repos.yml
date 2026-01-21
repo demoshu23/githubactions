@@ -68,7 +68,7 @@ jobs:
     steps:
       - name: Cleanup stale branches
         env:
-          GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }} #updated token
+          CLEANUP_TOKEN: ${{ secrets.CLEANUP_TOKEN }} #updated token
           DRY_RUN: "true"   # 🔁 set to "false" to actually delete
         run: |
           set -e
