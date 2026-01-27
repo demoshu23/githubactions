@@ -23,4 +23,5 @@ jobs:
           DRY_RUN: true       # Set to false to actually delete branches
           DAYS: 30           # Branch age threshold
         run: |
-          source "$GITHUB_WORKSPACE/cleanup_repos.sh"
+            bash cleanup_repos.sh
+        #   source "$GITHUB_WORKSPACE/cleanup_repos.sh"
