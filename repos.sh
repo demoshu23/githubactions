@@ -1,9 +1,3 @@
-# #!/bin/bash
-# REPOS=(
-#             "$GITHUB_REPOSITORY"          # current repo
-#             "demoshu23/MavenHelloWorld"
-#             "demoshu23/Lab"
-#           )
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -27,7 +21,7 @@ NOW_TS=$(date +%s)
 CUTOFF=$(date -d "-$DAYS days" +%s)
 
 # Branches to never delete
-PROTECTED_BRANCHES="^(main|master|develop|release/)"
+PROTECTED_BRANCHES="^(main|master|develop/)"
 
 # Report arrays
 declare -a REPORT_REPO
@@ -72,11 +66,15 @@ for REPO in "${REPOS[@]}"; do
         gh api -X DELETE repos/"$REPO"/git/refs/heads/"$BRANCH" || true
       fi
 
-      # Store in report arrays
-      REPORT_REPO+=("$REPO")
-      REPORT_BRANCH+=("$BRANCH")
-      REPORT_AGE+=("$AGE_DAYS")
-      REPORT_ACTION+=("$ACTION")
+    #   # Store in report arrays
+    #   REPORT_REPO+=("$REPO")
+    #   REPORT_BRANCH+=("$BRANCH")
+    #   REPORT_AGE+=("$AGE_DAYS")
+    #   REPORT_ACTION+=("$ACTION")
+      REPORT_REPO=()
+      REPORT_BRANCH=()
+      REPORT_AGE=()
+      REPORT_ACTION=()
 
       printf "%-35s %-30s %-10s %-10s\n" "$REPO" "$BRANCH" "$AGE_DAYS" "$ACTION"
     fi
