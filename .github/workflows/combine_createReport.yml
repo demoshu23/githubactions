@@ -89,21 +89,10 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Optional: only if gh/jq are not installed
-    #   - name: Install dependencies
-    #     run: |
-    #       if ! command -v gh &>/dev/null; then
-    #         sudo apt update
-    #         sudo apt install -y gh
-    #       fi
-    #       if ! command -v jq &>/dev/null; then
-    #         sudo apt install -y jq
-    #       fi
-
       - name: Cleanup stale branches
         env:
           GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
           DRY_RUN: true       # Set to false to actually delete branches
-          DAYS: 90            # Branch age threshold
+          DAYS: 2            # Branch age threshold
         run: |
           source "$GITHUB_WORKSPACE/repos.sh"
