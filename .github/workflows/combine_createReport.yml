@@ -27,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          source scripts/repos.sh
+          source repos.sh
 
           DAYS=90
           NOW_TS=$(date +%s)
