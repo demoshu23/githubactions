@@ -11,7 +11,7 @@ on:
 
 jobs:
   cleanup:
-    runs-on: [self-hosted, dev-agentpool]   # self-hosted agent label
+    runs-on: self-hosted  # self-hosted agent label
 
     permissions:
       contents: write
