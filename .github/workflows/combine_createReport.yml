@@ -1,7 +1,11 @@
-name: delete-stale-branches-multi-repo
+name: delete-stale-agent-pool-validation
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
   schedule:
     - cron: '0 0 * * 1'   # every Monday at 00:00 UTC
 
