@@ -26,8 +26,9 @@ jobs:
           DRY_RUN: true   # set to false to actually delete
         run: |
           set -euo pipefail
-
-          source repos.sh
+          echo "$GH_TOKEN}" | gh auth login --with-token
+          gh auth status
+          source "$GITHUB_WORKSPACE/repos.sh"
 
           DAYS=90
           NOW_TS=$(date +%s)
