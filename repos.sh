@@ -179,10 +179,8 @@ echo "-----------------------------------------------"
 echo "✅ Cleanup complete (dry-run=$DRY_RUN)"
 echo ""
 
-# -------------------------------
-# Summary Report
-# -------------------------------
-if [ "${#REPORT_REPO[@]:-0}" -eq 0 ]; then
+# Safe summary
+if [ "${#REPORT_REPO[@]}" -eq 0 ] 2>/dev/null || [ -z "${REPORT_REPO+x}" ]; then
   echo "No branches matched the stale criteria or all repos were inaccessible."
 else
   echo "Summary of branches processed:"
@@ -192,3 +190,22 @@ else
       "${REPORT_REPO[$i]}" "${REPORT_BRANCH[$i]}" "${REPORT_AGE[$i]}" "${REPORT_ACTION[$i]}"
   done
 fi
+
+
+# echo "-----------------------------------------------"
+# echo "✅ Cleanup complete (dry-run=$DRY_RUN)"
+# echo ""
+
+# # -------------------------------
+# # Summary Report
+# # -------------------------------
+# if [ "${#REPORT_REPO[@]:-0}" -eq 0 ]; then
+#   echo "No branches matched the stale criteria or all repos were inaccessible."
+# else
+#   echo "Summary of branches processed:"
+#   printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
+#   for i in "${!REPORT_REPO[@]}"; do
+#     printf "%-35s %-30s %-10s %-10s\n" \
+#       "${REPORT_REPO[$i]}" "${REPORT_BRANCH[$i]}" "${REPORT_AGE[$i]}" "${REPORT_ACTION[$i]}"
+#   done
+# fi
