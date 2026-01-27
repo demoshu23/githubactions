@@ -1,0 +1,66 @@
+name: delete-stale-branches-multi-repo
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'   # every Monday at 00:00 UTC
+
+jobs:
+  cleanup:
+    runs-on: [self-hosted, dev-agentpool]   # self-hosted agent label
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Cleanup stale branches across repos
+        env:
+          GH_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
+          DRY_RUN: true   # set to false to actually delete
+        run: |
+          set -euo pipefail
+
+          source scripts/repos.sh
+
+          DAYS=90
+          NOW_TS=$(date +%s)
+          CUTOFF=$(date -d "-$DAYS days" +%s)
+
+          echo ""
+          echo "📊 Stale Branch Report"
+          echo "----------------------------------------------------------------"
+          printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
+          echo "----------------------------------------------------------------"
+
+          for REPO in "${REPOS[@]}"; do
+            echo "🔍 Processing $REPO"
+
+            gh api repos/$REPO/branches --paginate \
+              | jq -r '.[].name' \
+              | grep -vE '^(main|master|develop|release/)' \
+              | while read -r BRANCH; do
+
+                  LAST_COMMIT_DATE=$(gh api repos/$REPO/commits/$BRANCH \
+                    | jq -r '.commit.committer.date')
+
+                  LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
+                  AGE_DAYS=$(( (NOW_TS - LAST_TS) / 86400 ))
+
+                  if [ "$LAST_TS" -lt "$CUTOFF" ]; then
+                    if [ "$DRY_RUN" = "true" ]; then
+                      ACTION="DRY-RUN"
+                    else
+                      ACTION="DELETED"
+                      gh api -X DELETE repos/$REPO/git/refs/heads/$BRANCH || true
+                    fi
+
+                    printf "%-35s %-30s %-10s %-10s\n" \
+                      "$REPO" "$BRANCH" "$AGE_DAYS" "$ACTION"
+                  fi
+              done
+          done
+
+          echo "----------------------------------------------------------------"
