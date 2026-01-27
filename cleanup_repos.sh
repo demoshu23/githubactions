@@ -38,17 +38,17 @@ REPORT_ACTION=()
 # Start cleanup
 # -------------------------------
 echo ""
-echo "📊 Stale Branch Cleanup Report"
-echo "-----------------------------------------------"
+echo "Stale Branch Cleanup Report"
+echo "------------------------------------------------------------------"
 printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
-echo "-----------------------------------------------"
+echo "------------------------------------------------------------------"
 
 for REPO in "${REPOS[@]}"; do
   echo "🔍 Processing $REPO"
 
   # Check if repo is accessible
   if ! gh api repos/"$REPO" --quiet >/dev/null 2>&1; then
-    echo "❌ Cannot access $REPO — skipping"
+    echo "Cannot access $REPO — skipping"
     continue
   fi
 
@@ -83,8 +83,8 @@ for REPO in "${REPOS[@]}"; do
   done
 done
 
-echo "-----------------------------------------------"
-echo "✅ Cleanup complete (dry-run=$DRY_RUN)"
+echo "------------------------------------------------------------------------"
+echo "Cleanup complete (dry-run=$DRY_RUN)"
 echo ""
 
 # Safe summary
