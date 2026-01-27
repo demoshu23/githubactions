@@ -1,4 +1,4 @@
-name: delete-stale-agent-pool-validation
+name: agent-pool-validation
 
 on:
   push:
