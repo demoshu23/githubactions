@@ -30,7 +30,7 @@ jobs:
           gh auth status
           source "$GITHUB_WORKSPACE/repos.sh"
 
-          DAYS=90
+          DAYS=2
           NOW_TS=$(date +%s)
           CUTOFF=$(date -d "-$DAYS days" +%s)
 
@@ -45,7 +45,7 @@ jobs:
 
             gh api repos/$REPO/branches --paginate \
               | jq -r '.[].name' \
-              | grep -vE '^(main|master|develop|release/)' \
+              | grep -vE '^(main|develop/)' \
               | while read -r BRANCH; do
 
                   LAST_COMMIT_DATE=$(gh api repos/$REPO/commits/$BRANCH \
