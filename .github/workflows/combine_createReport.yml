@@ -95,4 +95,9 @@ jobs:
           DRY_RUN: true       # Set to false to actually delete branches
           DAYS: 2            # Branch age threshold
         run: |
+          # Export the token so GH CLI picks it up
+          export GH_TOKEN="${GH_TOKEN}"
+          
+          # Optional: verify authentication
+          gh auth status || { echo "❌ GH_TOKEN invalid"; exit 1; }S
           source "$GITHUB_WORKSPACE/repos.sh"
