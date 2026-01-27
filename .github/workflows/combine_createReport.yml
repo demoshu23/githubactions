@@ -106,4 +106,4 @@ jobs:
           DRY_RUN: true       # Set to false to actually delete branches
           DAYS: 90            # Branch age threshold
         run: |
-          source "$GITHUB_WORKSPACE/scripts/repos.sh"
+          source "$GITHUB_WORKSPACE/repos.sh"
