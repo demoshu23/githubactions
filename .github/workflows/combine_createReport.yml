@@ -99,5 +99,5 @@ jobs:
           export GH_TOKEN="${GH_TOKEN}"
           
           # Optional: verify authentication
-          gh auth status || { echo "❌ GH_TOKEN invalid"; exit 1; }S
+          gh auth status || { echo "❌ GH_TOKEN invalid"; exit 1; }
           source "$GITHUB_WORKSPACE/repos.sh"
