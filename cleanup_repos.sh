@@ -1,134 +1,33 @@
-# #!/usr/bin/env bash
-# set -euo pipefail
-
-# # Make sure GH CLI picks up the token
-# export GH_TOKEN="${GH_TOKEN}"
-
-# # -------------------------------
-# # Configuration
-# # -------------------------------
-
-# # List of repositories in "owner/repo" format
-# REPOS=(
-#   "demoshu23/githubactions"
-#   "demoshu23/MavenHelloWorld"
-#   "demoshu23/Lab"
-# )
-
-# # Dry-run mode: set to "false" to actually delete branches
-# DRY_RUN="${DRY_RUN:-true}"
-
-# # Branch age threshold in days
-# DAYS="${DAYS:-90}"
-# NOW_TS=$(date +%s)
-# CUTOFF=$(date -d "-$DAYS days" +%s)
-
-# # Branches to never delete
-# PROTECTED_BRANCHES="^(main|master|develop|release/)"
-
-# # -------------------------------
-# # Initialize report arrays
-# # -------------------------------
-# REPORT_REPO=()
-# REPORT_BRANCH=()
-# REPORT_AGE=()
-# REPORT_ACTION=()
-
-# # -------------------------------
-# # Start cleanup
-# # -------------------------------
-# echo ""
-# echo "📊 Stale Branch Cleanup Report"
-# echo "-----------------------------------------------"
-# printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
-# echo "-----------------------------------------------"
-
-# for REPO in "${REPOS[@]}"; do
-#   echo "🔍 Processing $REPO"
-
-#   # Check if repo is accessible
-#   if ! gh api repos/"$REPO" --quiet >/dev/null 2>&1; then
-#     echo "❌ Cannot access $REPO — skipping"
-#     continue
-#   fi
-
-#   # Get branches, ignore protected branches
-#   BRANCHES=$(gh api repos/"$REPO"/branches --paginate \
-#               -H "Accept: application/vnd.github.v3+json" \
-#               | jq -r '.[].name' \
-#               | grep -vE "$PROTECTED_BRANCHES") || continue
-
-#   for BRANCH in $BRANCHES; do
-#     LAST_COMMIT_DATE=$(gh api repos/"$REPO"/commits/"$BRANCH" \
-#                         | jq -r '.commit.committer.date')
-#     LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
-#     AGE_DAYS=$(( (NOW_TS - LAST_TS) / 86400 ))
-
-#     if [ "$LAST_TS" -lt "$CUTOFF" ]; then
-#       if [ "$DRY_RUN" = "true" ]; then
-#         ACTION="DRY-RUN"
-#       else
-#         ACTION="DELETED"
-#         gh api -X DELETE repos/"$REPO"/git/refs/heads/"$BRANCH" || true
-#       fi
-
-#       # Store in report arrays
-#       REPORT_REPO+=("$REPO")
-#       REPORT_BRANCH+=("$BRANCH")
-#       REPORT_AGE+=("$AGE_DAYS")
-#       REPORT_ACTION+=("$ACTION")
-
-#       printf "%-35s %-30s %-10s %-10s\n" "$REPO" "$BRANCH" "$AGE_DAYS" "$ACTION"
-#     fi
-#   done
-# done
-
-# echo "-----------------------------------------------"
-# echo "✅ Cleanup complete (dry-run=$DRY_RUN)"
-# echo ""
-
-# # Safe summary
-# if [ "${#REPORT_REPO[@]}" -eq 0 ] 2>/dev/null || [ -z "${REPORT_REPO+x}" ]; then
-#   echo "No branches matched the stale criteria or all repos were inaccessible."
-# else
-#   echo "Summary of branches processed:"
-#   printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
-#   for i in "${!REPORT_REPO[@]}"; do
-#     printf "%-35s %-30s %-10s %-10s\n" \
-#       "${REPORT_REPO[$i]}" "${REPORT_BRANCH[$i]}" "${REPORT_AGE[$i]}" "${REPORT_ACTION[$i]}"
-#   done
-# fi
-
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set -euo pipefail
 
-# -------------------------------------------------
-# Prerequisites:
-#   - gh (GitHub CLI) authenticated
-#   - jq installed
-#   - GH_TOKEN exported (or gh auth login used)
-# -------------------------------------------------
+# Make sure GH CLI picks up the token
+export GH_TOKEN="${GH_TOKEN}"
 
 # -------------------------------
 # Configuration
 # -------------------------------
 
+# List of repositories in "owner/repo" format
 REPOS=(
-  # "demoshu23/githubactions"
+  "demoshu23/githubactions"
   "demoshu23/MavenHelloWorld"
   "demoshu23/Lab"
 )
 
-DRY_RUN="${DRY_RUN:-true}"   # true | false
+# Dry-run mode: set to "false" to actually delete branches
+DRY_RUN="${DRY_RUN:-true}"
+
+# Branch age threshold in days
 DAYS="${DAYS:-90}"
-
-PROTECTED_BRANCHES="^(main|master|develop|release/)"
-
 NOW_TS=$(date +%s)
-CUTOFF_TS=$(date -d "-$DAYS days" +%s)
+CUTOFF=$(date -d "-$DAYS days" +%s)
+
+# Branches to never delete
+PROTECTED_BRANCHES="^(main|develop/)"
 
 # -------------------------------
-# Report storage
+# Initialize report arrays
 # -------------------------------
 REPORT_REPO=()
 REPORT_BRANCH=()
@@ -136,74 +35,67 @@ REPORT_AGE=()
 REPORT_ACTION=()
 
 # -------------------------------
-# Header
+# Start cleanup
 # -------------------------------
-echo
+echo ""
 echo "📊 Stale Branch Cleanup Report"
-echo "---------------------------------------------------------------"
+echo "-----------------------------------------------"
 printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
-echo "---------------------------------------------------------------"
+echo "-----------------------------------------------"
 
-# -------------------------------
-# Processing
-# -------------------------------
 for REPO in "${REPOS[@]}"; do
   echo "🔍 Processing $REPO"
 
-  if ! gh api "repos/$REPO" --silent >/dev/null 2>&1; then
+  # Check if repo is accessible
+  if ! gh api repos/"$REPO" --quiet >/dev/null 2>&1; then
     echo "❌ Cannot access $REPO — skipping"
     continue
   fi
 
-  gh api "repos/$REPO/branches" --paginate \
-    | jq -r '.[].name' \
-    | grep -Ev "$PROTECTED_BRANCHES" \
-    | while read -r BRANCH; do
+  # Get branches, ignore protected branches
+  BRANCHES=$(gh api repos/"$REPO"/branches --paginate \
+              -H "Accept: application/vnd.github.v3+json" \
+              | jq -r '.[].name' \
+              | grep -vE "$PROTECTED_BRANCHES") || continue
 
-        LAST_COMMIT_DATE=$(
-          gh api "repos/$REPO/commits/$BRANCH" \
-            | jq -r '.commit.committer.date'
-        ) || return 0
+  for BRANCH in $BRANCHES; do
+    LAST_COMMIT_DATE=$(gh api repos/"$REPO"/commits/"$BRANCH" \
+                        | jq -r '.commit.committer.date')
+    LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
+    AGE_DAYS=$(( (NOW_TS - LAST_TS) / 86400 ))
 
-        LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
-        AGE_DAYS=$(( (NOW_TS - LAST_TS) / 86400 ))
+    if [ "$LAST_TS" -lt "$CUTOFF" ]; then
+      if [ "$DRY_RUN" = "true" ]; then
+        ACTION="DRY-RUN"
+      else
+        ACTION="DELETED"
+        gh api -X DELETE repos/"$REPO"/git/refs/heads/"$BRANCH" || true
+      fi
 
-        if (( LAST_TS < CUTOFF_TS )); then
-          if [[ "$DRY_RUN" == "true" ]]; then
-            ACTION="DRY-RUN"
-          else
-            ACTION="DELETED"
-            gh api -X DELETE "repos/$REPO/git/refs/heads/$BRANCH" || true
-          fi
+      # Store in report arrays
+      REPORT_REPO+=("$REPO")
+      REPORT_BRANCH+=("$BRANCH")
+      REPORT_AGE+=("$AGE_DAYS")
+      REPORT_ACTION+=("$ACTION")
 
-          REPORT_REPO+=("$REPO")
-          REPORT_BRANCH+=("$BRANCH")
-          REPORT_AGE+=("$AGE_DAYS")
-          REPORT_ACTION+=("$ACTION")
-
-          printf "%-35s %-30s %-10s %-10s\n" \
-            "$REPO" "$BRANCH" "$AGE_DAYS" "$ACTION"
-        fi
-      done
+      printf "%-35s %-30s %-10s %-10s\n" "$REPO" "$BRANCH" "$AGE_DAYS" "$ACTION"
+    fi
+  done
 done
 
-# -------------------------------
-# Summary
-# -------------------------------
-echo "---------------------------------------------------------------"
+echo "-----------------------------------------------"
 echo "✅ Cleanup complete (dry-run=$DRY_RUN)"
-echo
+echo ""
 
-if (( ${#REPORT_REPO[@]} == 0 )); then
-  echo "No stale branches found."
+# Safe summary
+if [ "${#REPORT_REPO[@]}" -eq 0 ] 2>/dev/null || [ -z "${REPORT_REPO+x}" ]; then
+  echo "No branches matched the stale criteria or all repos were inaccessible."
 else
-  echo "Summary of processed branches:"
+  echo "Summary of branches processed:"
   printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
   for i in "${!REPORT_REPO[@]}"; do
     printf "%-35s %-30s %-10s %-10s\n" \
-      "${REPORT_REPO[$i]}" \
-      "${REPORT_BRANCH[$i]}" \
-      "${REPORT_AGE[$i]}" \
-      "${REPORT_ACTION[$i]}"
+      "${REPORT_REPO[$i]}" "${REPORT_BRANCH[$i]}" "${REPORT_AGE[$i]}" "${REPORT_ACTION[$i]}"
   done
 fi
+
