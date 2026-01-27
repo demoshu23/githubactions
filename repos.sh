@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Make sure GH CLI picks up the token
+export GH_TOKEN="${GH_TOKEN}"
+
 # -------------------------------
 # Configuration
 # -------------------------------
