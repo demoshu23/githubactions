@@ -114,7 +114,7 @@ set -Eeuo pipefail
 # -------------------------------
 
 REPOS=(
-  "demoshu23/githubactions"
+  # "demoshu23/githubactions"
   "demoshu23/MavenHelloWorld"
   "demoshu23/Lab"
 )
