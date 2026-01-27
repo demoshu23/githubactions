@@ -98,66 +98,112 @@
 #       "${REPORT_REPO[$i]}" "${REPORT_BRANCH[$i]}" "${REPORT_AGE[$i]}" "${REPORT_ACTION[$i]}"
 #   done
 # fi
+
 #!/usr/bin/env bash
-set -e
+set -Eeuo pipefail
 
-# -----------------------
+# -------------------------------------------------
+# Prerequisites:
+#   - gh (GitHub CLI) authenticated
+#   - jq installed
+#   - GH_TOKEN exported (or gh auth login used)
+# -------------------------------------------------
+
+# -------------------------------
 # Configuration
-# -----------------------
+# -------------------------------
 
-# Repositories (owner/repo)
 REPOS=(
+  "demoshu23/githubactions"
   "demoshu23/MavenHelloWorld"
   "demoshu23/Lab"
 )
 
-# Dry run (default: true)
-DRY_RUN="${DRY_RUN:-true}"
-
-# Days threshold (default: 1)
-DAYS="${DAYS:-1}"
-
-CUTOFF=$(date -d "-$DAYS days" +%s)
+DRY_RUN="${DRY_RUN:-true}"   # true | false
+DAYS="${DAYS:-90}"
 
 PROTECTED_BRANCHES="^(main|master|develop|release/)"
 
-echo "📊 Stale Branch Cleanup"
-echo "Deleting branches older than $DAYS days"
-echo ""
+NOW_TS=$(date +%s)
+CUTOFF_TS=$(date -d "-$DAYS days" +%s)
 
-# -----------------------
-# Main loop
-# -----------------------
+# -------------------------------
+# Report storage
+# -------------------------------
+REPORT_REPO=()
+REPORT_BRANCH=()
+REPORT_AGE=()
+REPORT_ACTION=()
+
+# -------------------------------
+# Header
+# -------------------------------
+echo
+echo "📊 Stale Branch Cleanup Report"
+echo "---------------------------------------------------------------"
+printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
+echo "---------------------------------------------------------------"
+
+# -------------------------------
+# Processing
+# -------------------------------
 for REPO in "${REPOS[@]}"; do
   echo "🔍 Processing $REPO"
 
-  # Check repo access first
-  if ! gh api repos/"$REPO" >/dev/null 2>&1; then
+  if ! gh api "repos/$REPO" --silent >/dev/null 2>&1; then
     echo "❌ Cannot access $REPO — skipping"
     continue
   fi
 
-  gh api repos/"$REPO"/branches --paginate \
-    -H "Accept: application/vnd.github.v3+json" \
-  | jq -r '.[].name' \
-  | grep -vE "$PROTECTED_BRANCHES" \
-  | while read -r BRANCH; do
+  gh api "repos/$REPO/branches" --paginate \
+    | jq -r '.[].name' \
+    | grep -Ev "$PROTECTED_BRANCHES" \
+    | while read -r BRANCH; do
 
-      LAST_COMMIT_DATE=$(gh api repos/"$REPO"/commits/"$BRANCH" \
-        | jq -r '.commit.committer.date')
+        LAST_COMMIT_DATE=$(
+          gh api "repos/$REPO/commits/$BRANCH" \
+            | jq -r '.commit.committer.date'
+        ) || return 0
 
-      LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
+        LAST_TS=$(date -d "$LAST_COMMIT_DATE" +%s)
+        AGE_DAYS=$(( (NOW_TS - LAST_TS) / 86400 ))
 
-      if [ "$LAST_TS" -lt "$CUTOFF" ]; then
-        if [ "$DRY_RUN" = "true" ]; then
-          echo "🟡 [DRY-RUN] $REPO:$BRANCH"
-        else
-          echo "🧹 Deleting $REPO:$BRANCH"
-          gh api -X DELETE repos/"$REPO"/git/refs/heads/"$BRANCH" || true
+        if (( LAST_TS < CUTOFF_TS )); then
+          if [[ "$DRY_RUN" == "true" ]]; then
+            ACTION="DRY-RUN"
+          else
+            ACTION="DELETED"
+            gh api -X DELETE "repos/$REPO/git/refs/heads/$BRANCH" || true
+          fi
+
+          REPORT_REPO+=("$REPO")
+          REPORT_BRANCH+=("$BRANCH")
+          REPORT_AGE+=("$AGE_DAYS")
+          REPORT_ACTION+=("$ACTION")
+
+          printf "%-35s %-30s %-10s %-10s\n" \
+            "$REPO" "$BRANCH" "$AGE_DAYS" "$ACTION"
         fi
-      fi
-  done
+      done
 done
 
-echo ""
-echo "✅ Cleanup finished (dry-run=$DRY_RUN)"
+# -------------------------------
+# Summary
+# -------------------------------
+echo "---------------------------------------------------------------"
+echo "✅ Cleanup complete (dry-run=$DRY_RUN)"
+echo
+
+if (( ${#REPORT_REPO[@]} == 0 )); then
+  echo "No stale branches found."
+else
+  echo "Summary of processed branches:"
+  printf "%-35s %-30s %-10s %-10s\n" "REPO" "BRANCH" "AGE(days)" "ACTION"
+  for i in "${!REPORT_REPO[@]}"; do
+    printf "%-35s %-30s %-10s %-10s\n" \
+      "${REPORT_REPO[$i]}" \
+      "${REPORT_BRANCH[$i]}" \
+      "${REPORT_AGE[$i]}" \
+      "${REPORT_ACTION[$i]}"
+  done
+fi
