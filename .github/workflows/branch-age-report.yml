@@ -1,0 +1,79 @@
+name: Branch Age Report
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      repo_file:
+        description: "Path to repository list file"
+        required: true
+        default: "repos.txt"
+      output_file:
+        description: "Report output file"
+        required: true
+        default: "branch-age-report.md"
+
+jobs:
+  branch-age:
+    runs-on: self-hosted
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Generate branch age report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_FILE: ${{ inputs.repo_file }}
+          OUTPUT_FILE: ${{ inputs.output_file }}
+        run: |
+          set -euo pipefail
+
+          echo "# Branch Age Report" > "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+          echo "Generated on: $(date -u)" >> "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+
+          today_epoch=$(date +%s)
+
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+            repo="${line%%:*}"
+            branches="${line##*:}"
+
+            echo "## $repo" >> "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
+            echo "| Branch | Last Commit Date | Age (days) |" >> "$OUTPUT_FILE"
+            echo "|--------|------------------|------------|" >> "$OUTPUT_FILE"
+
+            IFS=',' read -ra branch_array <<< "$branches"
+            for branch in "${branch_array[@]}"; do
+              commit_date=$(gh api \
+                repos/$repo/commits/$branch \
+                --jq '.commit.committer.date' 2>/dev/null || true)
+
+              if [[ -z "$commit_date" ]]; then
+                echo "| $branch | ❌ Not found | N/A |" >> "$OUTPUT_FILE"
+                continue
+              fi
+
+              commit_epoch=$(date -d "$commit_date" +%s)
+              age_days=$(( (today_epoch - commit_epoch) / 86400 ))
+
+              echo "| $branch | $commit_date | $age_days |" >> "$OUTPUT_FILE"
+            done
+
+            echo "" >> "$OUTPUT_FILE"
+          done < "$REPO_FILE"
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: branch-age-report
+          path: ${{ inputs.output_file }}
