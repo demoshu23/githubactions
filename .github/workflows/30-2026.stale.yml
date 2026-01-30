@@ -1,0 +1,92 @@
+name: Cleanup stale branches
+
+on:
+  schedule:
+    - cron: "0 2 * * 0" # weekly Sunday 02:00
+  workflow_dispatch:
+  push:
+    branches:
+       - main
+
+jobs:
+  cleanup:
+    runs-on: self-hosted
+
+    env:
+      STALE_DAYS: 90
+      GITHUB_TOKEN: ${{ secrets.ORG_CLEANUP_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+    #   - name: Install dependencies
+    #     run: |
+    #       sudo apt-get update
+    #       sudo apt-get install -y jq
+
+      - name: Cleanup stale branches
+        id: cleanup
+        run: |
+          set -euo pipefail
+
+          REPORT="stale-branches-report.csv"
+          echo "repository,branch,days_old,deleted" > "$REPORT"
+
+          NOW=$(date +%s)
+
+          jq -c '.[]' repos.json | while read repo; do
+            OWNER=$(echo "$repo" | jq -r '.owner')
+            NAME=$(echo "$repo" | jq -r '.repo')
+            FULL_REPO="$OWNER/$NAME"
+
+            echo "Processing $FULL_REPO"
+
+            PROTECTED_PATTERNS=$(echo "$repo" | jq -r '.protected_patterns[]')
+
+            BRANCHES=$(curl -s \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
+
+            echo "$BRANCHES" | jq -c '.[]' | while read branch; do
+              BRANCH_NAME=$(echo "$branch" | jq -r '.name')
+
+              # Skip protected branches
+              for pattern in $PROTECTED_PATTERNS; do
+                if [[ "$BRANCH_NAME" == $pattern ]]; then
+                  continue 2
+                fi
+              done
+
+              COMMIT_DATE=$(curl -s \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                "$(echo "$branch" | jq -r '.commit.url')" \
+                | jq -r '.commit.author.date')
+
+              COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
+              AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
+
+              if [ "$AGE_DAYS" -ge "$STALE_DAYS" ]; then
+                echo "Deleting $FULL_REPO:$BRANCH_NAME ($AGE_DAYS days old)"
+
+                DELETE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                  -X DELETE \
+                  -H "Authorization: token $GITHUB_TOKEN" \
+                  "https://api.github.com/repos/$FULL_REPO/git/refs/heads/$BRANCH_NAME")
+
+                if [ "$DELETE_STATUS" -eq 204 ]; then
+                  DELETED=true
+                else
+                  DELETED=false
+                fi
+
+                echo "$FULL_REPO,$BRANCH_NAME,$AGE_DAYS,$DELETED" >> "$REPORT"
+              fi
+            done
+          done
+
+      - name: Upload cleanup report
+        uses: actions/upload-artifact@v4
+        with:
+          name: stale-branches-report
+          path: stale-branches-report.csv
