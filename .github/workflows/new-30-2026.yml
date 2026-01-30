@@ -1,0 +1,107 @@
+name: new 30 2026
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 2 * * 0" # Weekly Sunday 02:00
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: self-hosted
+
+    env:
+      STALE_DAYS: 90
+      GITHUB_TOKEN: ${{ secrets.ORG_CLEANUP_TOKEN }}
+      REPOS_JSON_URL: https://raw.githubusercontent.com/demoshu23/branch-cleanup-config/main/repos.json
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Verify GitHub token
+        run: |
+          curl -s \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/user | jq -e '.login' >/dev/null \
+            || { echo "❌ Invalid GitHub token"; exit 1; }
+
+      - name: Cleanup stale branches
+        run: |
+          set -euo pipefail
+
+          REPORT="stale-branches-report.csv"
+          echo "repository,branch,days_old,deleted" > "$REPORT"
+
+          echo "Fetching repos.json..."
+          REPOS_JSON=$(curl -s \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$REPOS_JSON_URL")
+
+          if ! echo "$REPOS_JSON" | jq -e 'type=="array"' >/dev/null; then
+            echo "❌ Failed to load repos.json"
+            echo "$REPOS_JSON" | jq .
+            exit 1
+          fi
+
+          NOW=$(date +%s)
+
+          echo "$REPOS_JSON" | jq -c '.[]' | while read -r repo; do
+            OWNER=$(echo "$repo" | jq -r '.owner')
+            NAME=$(echo "$repo" | jq -r '.repo')
+            FULL_REPO="$OWNER/$NAME"
+
+            echo "Processing $FULL_REPO"
+
+            PROTECTED_PATTERNS=$(echo "$repo" | jq -r '.protected_patterns[]')
+
+            BRANCHES=$(curl -s \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
+
+            if ! echo "$BRANCHES" | jq -e 'type=="array"' >/dev/null; then
+              echo "❌ Failed to fetch branches for $FULL_REPO"
+              echo "$BRANCHES" | jq .
+              continue
+            fi
+
+            echo "$BRANCHES" | jq -c '.[]' | while read -r branch; do
+              BRANCH_NAME=$(echo "$branch" | jq -r '.name')
+
+              for pattern in $PROTECTED_PATTERNS; do
+                [[ "$BRANCH_NAME" == $pattern ]] && continue 2
+              done
+
+              COMMIT_URL=$(echo "$branch" | jq -r '.commit.url')
+              COMMIT_DATE=$(curl -s \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                "$COMMIT_URL" | jq -r '.commit.author.date')
+
+              COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
+              AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
+
+              if [ "$AGE_DAYS" -ge "$STALE_DAYS" ]; then
+                echo "Deleting $FULL_REPO:$BRANCH_NAME ($AGE_DAYS days old)"
+
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                  -X DELETE \
+                  -H "Authorization: token $GITHUB_TOKEN" \
+                  "https://api.github.com/repos/$FULL_REPO/git/refs/heads/$BRANCH_NAME")
+
+                [[ "$STATUS" -eq 204 ]] && DELETED=true || DELETED=false
+                echo "$FULL_REPO,$BRANCH_NAME,$AGE_DAYS,$DELETED" >> "$REPORT"
+              fi
+            done
+          done
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: stale-branches-report
+          path: stale-branches-report.csv
