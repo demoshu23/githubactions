@@ -59,9 +59,22 @@ jobs:
 
             PROTECTED_PATTERNS=$(echo "$repo" | jq -r '.protected_patterns[]')
 
+            # BRANCHES=$(curl -s \
+            #   -H "Authorization: token $GITHUB_TOKEN" \
+            #   "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
             BRANCHES=$(curl -s \
-              -H "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
+                -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
+
+                # Validate response is an array
+                if ! echo "$BRANCHES" | jq -e 'type == "array"' >/dev/null; then
+                echo "❌ Failed to fetch branches for $FULL_REPO"
+                echo "Response:"
+                echo "$BRANCHES" | jq .
+                continue
+                fi
+
 
             echo "$BRANCHES" | jq -c '.[]' | while read branch; do
               BRANCH_NAME=$(echo "$branch" | jq -r '.name')
