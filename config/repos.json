@@ -1,0 +1,13 @@
+
+[
+  {
+    "owner": "demoshu23",
+    "repo": "MavenHelloWorld",
+    "protected_patterns": ["main", "develop"]
+  },
+  {
+    "owner": "demoshu23",
+    "repo": "Lab",
+    "protected_patterns": ["main", "stable"]
+  }
+]
