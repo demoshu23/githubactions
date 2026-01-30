@@ -1,4 +1,4 @@
-name: Cleanup stale branches
+name: 30th branch stale cleanup
 
 on:
   schedule:
