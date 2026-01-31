@@ -29,14 +29,36 @@ jobs:
           curl -s \
             -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/user | jq -e '.login' >/dev/null \
-            || { echo "❌ Invalid GitHub token"; exit 1; }
+            || { echo "Invalid GitHub token"; exit 1; }
+  
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify repo list file
+        run: |
+          REPO_FILE=".github/config/target-repos.txt"
+
+          echo "Workspace:"
+          pwd
+          ls -la
+          echo ".github/config:"
+          ls -la .github/config || true
+
+          if [ ! -f "$REPO_FILE" ]; then
+            echo "Repo list file not found: $REPO_FILE"
+            exit 1
+          fi
+
+          echo "Repo list file found"
+          cat "$REPO_FILE"
+
 
       - name: Cleanup stale branches
         run: |
           set -euo pipefail
 
           # REPO_FILE="config/target-repos.txt"
-          REPO_FILE=".github/config/target-repos.txt"
+          # REPO_FILE=".github/config/target-repos.txt"
           REPORT="readFromAFIle.csv"
           echo "# Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > "$REPORT"
           echo "repository,branch,days_old,action" >> "$REPORT"
@@ -44,7 +66,7 @@ jobs:
           NOW=$(date +%s)
 
           if [ ! -f "$REPO_FILE" ]; then
-            echo "❌ Repo list file not found: $REPO_FILE"
+            echo "Repo list file not found: $REPO_FILE"
             exit 1
           fi
 
@@ -65,7 +87,7 @@ jobs:
               "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
 
             if ! echo "$BRANCHES" | jq -e 'type=="array"' >/dev/null; then
-              echo "❌ Failed to fetch branches for $FULL_REPO"
+              echo "Failed to fetch branches for $FULL_REPO"
               echo "$BRANCHES" | jq .
               continue
             fi
