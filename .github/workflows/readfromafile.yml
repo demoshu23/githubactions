@@ -133,26 +133,56 @@ jobs:
           name: readFromAFIle-${{ steps.timestamp.outputs.ts }}
           path: readFromAFIle.csv
 
-
       - name: Send Email Notification
         if: always()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: smtp.example.com
+          server_address: shuaws1979@gmail.com
           server_port: 587
+          secure: false
+
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASS }}
-          subject: "Stale Branch Cleanup Report ($OWNER) - ${{ steps.timestamp.outputs.ts }}"
+
+          subject: "Stale Branch Cleanup Report ($OWNER)"
+          to: shuaws1979@gmail.com
+          from: github-actions@gmail.com
+
           body: |
             Hello Team,
 
-            The stale branch cleanup for organization $OWNER has completed.
+            The stale branch cleanup workflow has completed.
 
-            Dry-run: $DRY_RUN
-            Report:
-            $(cat readFromAFIle.csv)
+            Dry-run mode: $DRY_RUN
+
+            Please find the attached CSV report.
 
             Regards,
             GitHub Actions
-          to: shuaws1979@gmail.com
-          from: github-actions@example.com
+
+          attachments: readFromAFIle.csv
+
+
+
+      # - name: Send Email Notification
+      #   if: always()
+      #   uses: dawidd6/action-send-mail@v3
+      #   with:
+      #     server_address: smtp.example.com
+      #     server_port: 587
+      #     username: ${{ secrets.SMTP_USER }}
+      #     password: ${{ secrets.SMTP_PASS }}
+      #     subject: "Stale Branch Cleanup Report ($OWNER) - ${{ steps.timestamp.outputs.ts }}"
+      #     body: |
+      #       Hello Team,
+
+      #       The stale branch cleanup for organization $OWNER has completed.
+
+      #       Dry-run: $DRY_RUN
+      #       Report:
+      #       $(cat readFromAFIle.csv)
+
+      #       Regards,
+      #       GitHub Actions
+      #     to: shuaws1979@gmail.com
+      #     from: github-actions@example.com
