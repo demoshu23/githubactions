@@ -19,7 +19,7 @@ jobs:
 
     env:
       OWNER: demoshu23
-      STALE_DAYS: 90
+      STALE_DAYS: 2
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       GITHUB_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
 
