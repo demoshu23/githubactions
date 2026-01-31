@@ -137,7 +137,7 @@ jobs:
         if: always()
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: shuaws1979@gmail.com
+          server_address: smtp.gmail.com
           server_port: 587
           secure: false
 
