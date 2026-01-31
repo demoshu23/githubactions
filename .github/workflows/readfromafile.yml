@@ -186,6 +186,8 @@
 #       #       GitHub Actions
 #       #     to: shuaws1979@gmail.com
 #       #     from: github-actions@example.com
+
+
 name: Read Repos and Cleanup Stale Branches
 
 on:
@@ -318,7 +320,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: readFromAFIle-${{ steps.timestamp.outputs.ts }}
-          path: readFromAFIle.csv
+          path: readFromAFIle-${{ steps.timestamp.outputs.ts }}.csv
 
   send-email:
     name: Send Email Notification
@@ -346,5 +348,5 @@ jobs:
             Please find the attached CSV report.
 
             Regards,
-            GitHub Actions
+            Engineer
           attachments: readFromAFIle.csv
