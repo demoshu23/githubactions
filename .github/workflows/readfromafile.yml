@@ -134,25 +134,25 @@ jobs:
           path: readFromAFIle.csv
 
 
-      # - name: Send Email Notification
-      #   if: always()
-      #   uses: dawidd6/action-send-mail@v3
-      #   with:
-      #     server_address: smtp.example.com
-      #     server_port: 587
-      #     username: ${{ secrets.SMTP_USER }}
-      #     password: ${{ secrets.SMTP_PASS }}
-      #     subject: "Stale Branch Cleanup Report ($OWNER) - ${{ steps.timestamp.outputs.ts }}"
-      #     body: |
-      #       Hello Team,
+      - name: Send Email Notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.example.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: "Stale Branch Cleanup Report ($OWNER) - ${{ steps.timestamp.outputs.ts }}"
+          body: |
+            Hello Team,
 
-      #       The stale branch cleanup for organization $OWNER has completed.
+            The stale branch cleanup for organization $OWNER has completed.
 
-      #       Dry-run: $DRY_RUN
-      #       Report:
-      #       $(cat readFromAFIle.csv)
+            Dry-run: $DRY_RUN
+            Report:
+            $(cat readFromAFIle.csv)
 
-      #       Regards,
-      #       GitHub Actions
-      #     to: insuretrust0@gmail.com
-      #     from: github-actions@example.com
+            Regards,
+            GitHub Actions
+          to: shuaws1979@gmail.com
+          from: github-actions@example.com
