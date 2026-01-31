@@ -1,4 +1,4 @@
-name: New stale (90 days)
+name: read repos from a file
 
 on:
   push:
@@ -18,12 +18,17 @@ jobs:
     runs-on: self-hosted
 
     env:
-      ORG_NAME: demoshu23
-      STALE_DAYS: 2
+      OWNER: demoshu23
+      STALE_DAYS: 90
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       GITHUB_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
 
     steps:
+    #   - name: Install dependencies
+    #     run: |
+    #       sudo apt-get update
+    #       sudo apt-get install -y jq curl
+
       - name: Validate GitHub token
         run: |
           curl -s \
@@ -31,41 +36,48 @@ jobs:
             https://api.github.com/user | jq -e '.login' >/dev/null \
             || { echo "❌ Invalid GitHub token"; exit 1; }
 
-      - name: Cleanup stale branches from multiple repos
+      - name: Cleanup stale branches
         run: |
           set -euo pipefail
 
-          REPORT="stale-branches-report.csv"
-          echo "repository,branch,days_old,action" > "$REPORT"
+          REPO_FILE="config/target-repos.txt"
+          REPORT="readFromAFIle.csv"
+          echo "# Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > "$REPORT"
+          echo "repository,branch,days_old,action" >> "$REPORT"
+
           NOW=$(date +%s)
 
+          if [ ! -f "$REPO_FILE" ]; then
+            echo "❌ Repo list file not found: $REPO_FILE"
+            exit 1
+          fi
+
           echo "Dry-run mode: $DRY_RUN"
-          echo "Fetching repositories for org: $ORG_NAME"
+          echo "Processing repositories from $REPO_FILE"
+          cat "$REPO_FILE"
 
-          REPOS=$(curl -s \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/users/$ORG_NAME/repos?per_page=100")
+          while read -r REPO || [ -n "$REPO" ]; do
+            # Skip empty lines and comments
+            [[ -z "$REPO" || "$REPO" =~ ^# ]] && continue
 
-
-          echo "$REPOS" | jq -c '.[]' | while read -r repo; do
-            REPO_NAME=$(echo "$repo" | jq -r '.name')
-            FULL_REPO="$ORG_NAME/$REPO_NAME"
-
+            FULL_REPO="$OWNER/$REPO"
             echo "Processing $FULL_REPO"
 
             BRANCHES=$(curl -s \
               -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
 
             if ! echo "$BRANCHES" | jq -e 'type=="array"' >/dev/null; then
               echo "❌ Failed to fetch branches for $FULL_REPO"
+              echo "$BRANCHES" | jq .
               continue
             fi
 
             echo "$BRANCHES" | jq -c '.[]' | while read -r branch; do
               BRANCH_NAME=$(echo "$branch" | jq -r '.name')
 
-              # Skip protected branches
+              # Never touch protected branches
               case "$BRANCH_NAME" in
                 main|master|develop|release/*) continue ;;
               esac
@@ -84,7 +96,6 @@ jobs:
                   ACTION="dry-run"
                 else
                   echo "Deleting $FULL_REPO:$BRANCH_NAME ($AGE_DAYS days old)"
-
                   STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
                     -X DELETE \
                     -H "Authorization: token $GITHUB_TOKEN" \
@@ -96,13 +107,50 @@ jobs:
                 echo "$FULL_REPO,$BRANCH_NAME,$AGE_DAYS,$ACTION" >> "$REPORT"
               fi
             done
-          done
+          done < "$REPO_FILE"
+
       - name: Set timestamp
         id: timestamp
         run: |
           echo "ts=$(date '+%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
-      - name: Upload report
+
+      - name: Upload cleanup report
         uses: actions/upload-artifact@v4
         with:
-          name: stale-branches-report-${{ steps.timestamp.outputs.ts }}
-          path: stale-branches-report.csv
+          name: readFromAFIle-${{ steps.timestamp.outputs.ts }}
+          path: readFromAFIle.csv
+
+    #   - name: Send Slack notification
+    #     if: always()
+    #     env:
+    #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    #     run: |
+    #       REPORT_SUMMARY=$(tail -n +3 readFromAFIle.csv | awk -F',' '{print $1" "$2" "$3" days -> "$4}' | paste -sd '\n' -)
+    #       REPORT_SUMMARY=${REPORT_SUMMARY:-"No branches deleted or eligible"}
+    #       PAYLOAD=$(jq -n --arg text "Stale Branch Cleanup Report for $OWNER (Dry-run: $DRY_RUN)\n$REPORT_SUMMARY" '{text: $text}')
+    #       curl -s -X POST -H 'Content-type: application/json' --data "$PAYLOAD" $SLACK_WEBHOOK_URL
+
+      - name: Send Email Notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.example.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          subject: "Stale Branch Cleanup Report ($OWNER) - ${{ steps.timestamp.outputs.ts }}"
+          body: |
+            Hello Team,
+
+            The stale branch cleanup for organization $OWNER has completed.
+
+            Dry-run: $DRY_RUN
+            Report:
+            $(cat readFromAFIle.csv)
+
+            Regards,
+            GitHub Actions
+          to: insuretrust0@gmail.com
+          from: github-actions@example.com
+
+    
