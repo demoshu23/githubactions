@@ -31,7 +31,7 @@ jobs:
           curl -s \
             -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/user | jq -e '.login' >/dev/null \
-            || { echo "❌ Invalid GitHub token"; exit 1; }
+            || { echo "Invalid GitHub token, check seeting and fix"; exit 1; }
 
       - name: Cleanup stale branches
         run: |
@@ -54,7 +54,7 @@ jobs:
               "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
 
             if ! echo "$BRANCHES" | jq -e 'type=="array"' >/dev/null; then
-              echo "❌ Failed to fetch branches for $FULL_REPO"
+              echo "Failed to fetch branches for $FULL_REPO"
               echo "$BRANCHES" | jq .
               continue
             fi

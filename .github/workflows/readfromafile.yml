@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_FILE="target-repos.txt"
+          REPO_FILE="config/target-repos.txt"
           REPORT="readFromAFIle.csv"
           echo "# Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > "$REPORT"
           echo "repository,branch,days_old,action" >> "$REPORT"
