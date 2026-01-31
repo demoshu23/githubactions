@@ -305,6 +305,8 @@ jobs:
     name: Set Timestamp
     runs-on: self-hosted
     needs: cleanup-branches
+    outputs:
+      ts: ${{ steps.timestamp.outputs.ts }}
     steps:
       - name: Generate timestamp
         id: timestamp
@@ -320,7 +322,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: readFromAFIle-${{ steps.timestamp.outputs.ts }}
-          path: readFromAFIle-${{ steps.timestamp.outputs.ts }}.csv
+          path: readFromAFIle.csv
 
   send-email:
     name: Send Email Notification
