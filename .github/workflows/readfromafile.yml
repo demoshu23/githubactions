@@ -321,7 +321,7 @@ jobs:
       - name: Upload CSV artifact
         uses: actions/upload-artifact@v4
         with:
-          name: readFromAFIle-${{ steps.timestamp.outputs.ts }}
+          name: readFromAFIle-${{ needs.set-timestamp.outputs.ts }}
           path: readFromAFIle.csv
 
   send-email:
