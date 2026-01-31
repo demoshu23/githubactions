@@ -103,4 +103,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: few-sample-repos-${{ steps.timestamp.outputs.ts }}
-          path: few-sample-repos-${{ steps.timestamp.outputs.ts }}.csv
+          path: few-sample-repos.csv

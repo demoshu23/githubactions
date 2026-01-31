@@ -104,4 +104,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stale-branches-report-${{ steps.timestamp.outputs.ts }}
-          path: stale-branches-report-${{ steps.timestamp.outputs.ts }}.csv
+          path: stale-branches-report.csv
