@@ -1,0 +1,106 @@
+name: explicit repos
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 2 * * 0" # Weekly Sunday 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no branches will be deleted)"
+        required: false
+        default: "true"
+
+jobs:
+  cleanup:
+    runs-on: self-hosted
+
+    env:
+      OWNER: demoshu23
+      TARGET_REPOS: "MavenHelloWorld Lab"
+      STALE_DAYS: 90
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      GITHUB_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
+
+    steps:
+    #   - name: Install dependencies
+    #     run: |
+    #       sudo apt-get update
+    #       sudo apt-get install -y jq curl
+
+      - name: Validate GitHub token
+        run: |
+          curl -s \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/user | jq -e '.login' >/dev/null \
+            || { echo "❌ Invalid GitHub token"; exit 1; }
+
+      - name: Cleanup stale branches
+        run: |
+          set -euo pipefail
+
+          REPORT="few-sample-repos.csv"
+          echo "repository,branch,days_old,action" > "$REPORT"
+
+          NOW=$(date +%s)
+          echo "Dry-run mode: $DRY_RUN"
+          echo "Target repositories: $TARGET_REPOS"
+
+          for REPO in $TARGET_REPOS; do
+            FULL_REPO="$OWNER/$REPO"
+            echo "Processing $FULL_REPO"
+
+            BRANCHES=$(curl -s \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
+
+            if ! echo "$BRANCHES" | jq -e 'type=="array"' >/dev/null; then
+              echo "❌ Failed to fetch branches for $FULL_REPO"
+              echo "$BRANCHES" | jq .
+              continue
+            fi
+
+            echo "$BRANCHES" | jq -c '.[]' | while read -r branch; do
+              BRANCH_NAME=$(echo "$branch" | jq -r '.name')
+
+              # Never touch protected branches
+              case "$BRANCH_NAME" in
+                main|master|develop|release/*) continue ;;
+              esac
+
+              COMMIT_URL=$(echo "$branch" | jq -r '.commit.url')
+              COMMIT_DATE=$(curl -s \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                "$COMMIT_URL" | jq -r '.commit.author.date')
+
+              COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
+              AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
+
+              if [ "$AGE_DAYS" -ge "$STALE_DAYS" ]; then
+                if [ "$DRY_RUN" = "true" ]; then
+                  echo "[DRY-RUN] $FULL_REPO:$BRANCH_NAME ($AGE_DAYS days old)"
+                  ACTION="dry-run"
+                else
+                  echo "Deleting $FULL_REPO:$BRANCH_NAME ($AGE_DAYS days old)"
+
+                  STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                    -X DELETE \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    "https://api.github.com/repos/$FULL_REPO/git/refs/heads/$BRANCH_NAME")
+
+                  [[ "$STATUS" -eq 204 ]] && ACTION="deleted" || ACTION="failed"
+                fi
+
+                echo "$FULL_REPO,$BRANCH_NAME,$AGE_DAYS,$ACTION" >> "$REPORT"
+              fi
+            done
+          done
+
+      - name: Upload cleanup report
+        uses: actions/upload-artifact@v4
+        with:
+          name: few-sample-repos
+          path: few-sample-repos.csv
