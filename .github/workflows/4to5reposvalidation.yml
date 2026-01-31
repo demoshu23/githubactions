@@ -19,7 +19,7 @@ jobs:
 
     env:
       OWNER: demoshu23
-      TARGET_REPOS: "MavenHelloWorld Lab"
+      TARGET_REPOS: "MavenHelloWorld Lab githubactions"
       STALE_DAYS: 2
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       GITHUB_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
