@@ -21,7 +21,7 @@ jobs:
       ORG_NAME: demoshu23
       STALE_DAYS: 90
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
-      GITHUB_TOKEN: ${{ secrets.ORG_CLEANUP_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
 
     steps:
       - name: Install dependencies
