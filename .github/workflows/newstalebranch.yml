@@ -49,7 +49,8 @@ jobs:
 
           REPOS=$(curl -s \
             -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/orgs/$ORG_NAME/repos?per_page=100")
+            "https://api.github.com/users/$ORG_NAME/repos?per_page=100")
+
 
           echo "$REPOS" | jq -c '.[]' | while read -r repo; do
             REPO_NAME=$(echo "$repo" | jq -r '.name')
