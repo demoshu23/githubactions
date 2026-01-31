@@ -33,14 +33,13 @@ jobs:
   
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Verify repo list file
         run: |
           REPO_FILE=".github/config/target-repos.txt"
 
-          echo "Workspace:"
-          pwd
-          ls -la
+          # echo "Workspace:"
+          # pwd
+          # ls -la
           echo ".github/config:"
           ls -la .github/config || true
 
@@ -51,15 +50,12 @@ jobs:
 
           echo "Repo list file found"
           cat "$REPO_FILE"
-
-
       - name: Cleanup stale branches
         run: |
           set -euo pipefail
 
           # REPO_FILE="config/target-repos.txt"
           REPO_FILE=".github/config/target-repos.txt"
-          
           REPORT="readFromAFIle.csv"
           echo "# Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > "$REPORT"
           echo "repository,branch,days_old,action" >> "$REPORT"
@@ -72,7 +68,7 @@ jobs:
           fi
 
           echo "Dry-run mode: $DRY_RUN"
-          echo "Processing repositories from $REPO_FILE"
+          echo "Processing all repositories from $REPO_FILE"
           cat "$REPO_FILE"
 
           while read -r REPO || [ -n "$REPO" ]; do
@@ -127,12 +123,10 @@ jobs:
               fi
             done
           done < "$REPO_FILE"
-
       - name: Set timestamp
         id: timestamp
         run: |
           echo "ts=$(date '+%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
-
       - name: Upload cleanup report
         uses: actions/upload-artifact@v4
         with:
