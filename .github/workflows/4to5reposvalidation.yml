@@ -98,9 +98,13 @@ jobs:
               fi
             done
           done
+      - name: Set timestamp
+        id: timestamp
+        run: |
+          echo "ts=$(date '+%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
 
       - name: Upload cleanup report
         uses: actions/upload-artifact@v4
         with:
-          name: few-sample-repos
+          name: few-sample-repos-${{ steps.timestamp.outputs.ts }}
           path: few-sample-repos.csv
