@@ -57,6 +57,8 @@ jobs:
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       GITHUB_TOKEN: ${{ secrets.CLEANUP_TOKEN }}
     steps:
+      - name: Cleanup stale branches repo
+        uses: actions/checkout@v4
       - name: Cleanup stale branches
         run: |
           set -euo pipefail
