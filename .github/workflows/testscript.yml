@@ -1,0 +1,126 @@
+name: Cleanup-Stale-Branches-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      - main
+
+schedules:
+  - cron: "0 2 * * 0"
+    displayName: Weekly Sunday 02:00 UTC
+    branches:
+      include:
+        - main
+    always: true
+
+parameters:
+  - name: dry_run
+    displayName: Dry Run
+    type: string
+    default: "true"
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  OWNER: demoshu23
+  STALE_DAYS: 2
+
+stages:
+
+- stage: ValidateToken
+  jobs:
+    - job: Validate
+      steps:
+        - script: |
+            sudo apt-get update
+            sudo apt-get install -y jq
+
+            RESPONSE=$(curl -s \
+              -H "Authorization: token $(CLEANUP_TOKEN)" \
+              https://api.github.com/user)
+
+            echo "$RESPONSE" | jq -e '.login' >/dev/null \
+              || { echo "Invalid GitHub token"; exit 1; }
+          displayName: Validate GitHub Token
+
+- stage: CleanupBranches
+  dependsOn: ValidateToken
+  jobs:
+    - job: Cleanup
+      steps:
+        - checkout: self
+
+        - script: |
+            sudo apt-get update
+            sudo apt-get install -y jq
+
+            set -euo pipefail
+
+            REPO_FILE=".github/config/target-repos.txt"
+            REPORT="readFromAFile.csv"
+
+            echo "# Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > "$REPORT"
+            echo "repository,branch,days_old,action" >> "$REPORT"
+
+            NOW=$(date +%s)
+
+            while read -r REPO || [ -n "$REPO" ]; do
+              [[ -z "$REPO" || "$REPO" =~ ^# ]] && continue
+
+              FULL_REPO="$(OWNER)/$REPO"
+              echo "Processing $FULL_REPO"
+
+              BRANCHES=$(curl -s \
+                -H "Authorization: token $(CLEANUP_TOKEN)" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
+
+              if ! echo "$BRANCHES" | jq -e 'type=="array"' >/dev/null; then
+                echo "Failed to fetch branches for $FULL_REPO"
+                continue
+              fi
+
+              echo "$BRANCHES" | jq -c '.[]' | while read -r branch; do
+                BRANCH_NAME=$(echo "$branch" | jq -r '.name')
+
+                case "$BRANCH_NAME" in
+                  main|master|develop|release/*)
+                    continue
+                    ;;
+                esac
+
+                COMMIT_URL=$(echo "$branch" | jq -r '.commit.url')
+
+                COMMIT_DATE=$(curl -s \
+                  -H "Authorization: token $(CLEANUP_TOKEN)" \
+                  "$COMMIT_URL" | jq -r '.commit.author.date')
+
+                COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
+                AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
+
+                if [ "$AGE_DAYS" -ge "$(STALE_DAYS)" ]; then
+                  if [ "${{ parameters.dry_run }}" = "true" ]; then
+                    ACTION="dry-run"
+                    echo "[DRY-RUN] $FULL_REPO:$BRANCH_NAME"
+                  else
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+                      -H "Authorization: token $(CLEANUP_TOKEN)" \
+                      "https://api.github.com/repos/$FULL_REPO/git/refs/heads/$BRANCH_NAME")
+
+                    if [ "$STATUS" -eq 204 ]; then
+                      ACTION="deleted"
+                    else
+                      ACTION="failed"
+                    fi
+                  fi
+
+                  echo "$FULL_REPO,$BRANCH_NAME,$AGE_DAYS,$ACTION" >> "$REPORT"
+                fi
+              done
+            done < "$REPO_FILE"
+          displayName: Cleanup Stale Branches
+
+        - publish: readFromAFile.csv
+          artifact: CleanupReport
+          displayName: Upload Report
