@@ -28,6 +28,9 @@ variables:
 
 stages:
 
+# =========================
+# Stage 1 – Validate Token
+# =========================
 - stage: ValidateToken
   jobs:
     - job: Validate
@@ -36,14 +39,22 @@ stages:
             sudo apt-get update
             sudo apt-get install -y jq
 
+            set -e
+
             RESPONSE=$(curl -s \
-              -H "Authorization: token $(CLEANUP_TOKEN)" \
+              -H "Authorization: token $CLEANUP_TOKEN" \
               https://api.github.com/user)
 
             echo "$RESPONSE" | jq -e '.login' >/dev/null \
               || { echo "Invalid GitHub token"; exit 1; }
-          displayName: Validate GitHub Token
 
+          displayName: Validate GitHub Token
+          env:
+            CLEANUP_TOKEN: $(CLEANUP_TOKEN)
+
+# =========================
+# Stage 2 – Cleanup Branches
+# =========================
 - stage: CleanupBranches
   dependsOn: ValidateToken
   jobs:
@@ -68,11 +79,11 @@ stages:
             while read -r REPO || [ -n "$REPO" ]; do
               [[ -z "$REPO" || "$REPO" =~ ^# ]] && continue
 
-              FULL_REPO="$(OWNER)/$REPO"
+              FULL_REPO="$OWNER/$REPO"
               echo "Processing $FULL_REPO"
 
               BRANCHES=$(curl -s \
-                -H "Authorization: token $(CLEANUP_TOKEN)" \
+                -H "Authorization: token $CLEANUP_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
                 "https://api.github.com/repos/$FULL_REPO/branches?per_page=100")
 
@@ -93,19 +104,19 @@ stages:
                 COMMIT_URL=$(echo "$branch" | jq -r '.commit.url')
 
                 COMMIT_DATE=$(curl -s \
-                  -H "Authorization: token $(CLEANUP_TOKEN)" \
+                  -H "Authorization: token $CLEANUP_TOKEN" \
                   "$COMMIT_URL" | jq -r '.commit.author.date')
 
                 COMMIT_TS=$(date -d "$COMMIT_DATE" +%s)
                 AGE_DAYS=$(( (NOW - COMMIT_TS) / 86400 ))
 
-                if [ "$AGE_DAYS" -ge "$(STALE_DAYS)" ]; then
+                if [ "$AGE_DAYS" -ge "$STALE_DAYS" ]; then
                   if [ "${{ parameters.dry_run }}" = "true" ]; then
                     ACTION="dry-run"
                     echo "[DRY-RUN] $FULL_REPO:$BRANCH_NAME"
                   else
                     STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
-                      -H "Authorization: token $(CLEANUP_TOKEN)" \
+                      -H "Authorization: token $CLEANUP_TOKEN" \
                       "https://api.github.com/repos/$FULL_REPO/git/refs/heads/$BRANCH_NAME")
 
                     if [ "$STATUS" -eq 204 ]; then
@@ -119,7 +130,10 @@ stages:
                 fi
               done
             done < "$REPO_FILE"
+
           displayName: Cleanup Stale Branches
+          env:
+            CLEANUP_TOKEN: $(CLEANUP_TOKEN)
 
         - publish: readFromAFile.csv
           artifact: CleanupReport
